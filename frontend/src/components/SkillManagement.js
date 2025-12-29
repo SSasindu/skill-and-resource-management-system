@@ -10,11 +10,7 @@ function SkillManagement() {
     const [showSkillForm, setShowSkillForm] = useState(false);
     const [showAssignForm, setShowAssignForm] = useState(false);
     const [editingId, setEditingId] = useState(null);
-    const [skillFormData, setSkillFormData] = useState({
-        skill_name: '',
-        category: '',
-        description: ''
-    });
+    const [skillFormData, setSkillFormData] = useState({skill_name: ''});
     const [assignFormData, setAssignFormData] = useState({
         personnel_id: '',
         skill_id: '',
@@ -160,25 +156,6 @@ function SkillManagement() {
                                 required
                             />
                         </div>
-                        <div className="form-group">
-                            <label>Category *</label>
-                            <input
-                                type="text"
-                                name="category"
-                                value={skillFormData.category}
-                                onChange={handleSkillInputChange}
-                                placeholder="e.g., Programming Language, Framework, Tool"
-                                required
-                            />
-                        </div>
-                        <div className="form-group">
-                            <label>Description</label>
-                            <textarea
-                                name="description"
-                                value={skillFormData.description}
-                                onChange={handleSkillInputChange}
-                            />
-                        </div>
                         <button type="submit" className="btn btn-success">
                             {editingId ? 'Update' : 'Create'}
                         </button>
@@ -218,7 +195,7 @@ function SkillManagement() {
                                 <option value="">-- Select Skill --</option>
                                 {skills.map((skill) => (
                                     <option key={skill.id} value={skill.id}>
-                                        {skill.skill_name} ({skill.category})
+                                        {skill.skill_name}
                                     </option>
                                 ))}
                             </select>
@@ -257,8 +234,6 @@ function SkillManagement() {
                             <thead>
                                 <tr>
                                     <th>Skill Name</th>
-                                    <th>Category</th>
-                                    <th>Description</th>
                                     <th>Actions</th>
                                 </tr>
                             </thead>
@@ -266,8 +241,6 @@ function SkillManagement() {
                                 {skills.map((skill) => (
                                     <tr key={skill.id}>
                                         <td className="align-middle"><strong>{skill.skill_name}</strong></td>
-                                        <td className="align-middle">{skill.category}</td>
-                                        <td className="align-middle">{skill.description || '-'}</td>
                                         <td className="table-actions align-middle">
                                         <button
                                             className="btn btn-warning"

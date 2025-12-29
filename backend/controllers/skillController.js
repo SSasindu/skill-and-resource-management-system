@@ -3,7 +3,7 @@ const db = require('../config/database');
 // Get all skills
 exports.getAllSkills = async (req, res) => {
     try {
-        const [rows] = await db.query('SELECT * FROM skills ORDER BY category, skill_name');
+        const [rows] = await db.query('SELECT * FROM skills');
         res.json({
             success: true,
             data: rows
@@ -43,19 +43,19 @@ exports.getSkillById = async (req, res) => {
 // Create new skill
 exports.createSkill = async (req, res) => {
     try {
-        const { skill_name, category, description } = req.body;
+        const { skill_name} = req.body;
 
         // Validation
-        if (!skill_name || !category) {
+        if (!skill_name) {
             return res.status(400).json({
                 success: false,
-                message: 'Please provide skill_name and category'
+                message: 'Please provide skill_name'
             });
         }
 
         const [result] = await db.query(
-            'INSERT INTO skills (skill_name, category, description) VALUES (?, ?, ?)',
-            [skill_name, category, description || null]
+            'INSERT INTO skills (skill_name) VALUES (?)',
+            [skill_name]
         );
 
         const [newSkill] = await db.query('SELECT * FROM skills WHERE id = ?', [result.insertId]);
@@ -83,7 +83,7 @@ exports.createSkill = async (req, res) => {
 // Update skill
 exports.updateSkill = async (req, res) => {
     try {
-        const { skill_name, category, description } = req.body;
+        const { skill_name} = req.body;
         const { id } = req.params;
 
         // Check if skill exists
@@ -96,11 +96,9 @@ exports.updateSkill = async (req, res) => {
         }
 
         await db.query(
-            'UPDATE skills SET skill_name = ?, category = ?, description = ? WHERE id = ?',
+            'UPDATE skills SET skill_name = ? WHERE id = ?',
             [
                 skill_name || existing[0].skill_name,
-                category || existing[0].category,
-                description !== undefined ? description : existing[0].description,
                 id
             ]
         );
@@ -224,7 +222,7 @@ exports.assignSkillToPersonnel = async (req, res) => {
         res.status(500).json({
             success: false,
             message: 'Error assigning skill',
-            error: error.message
+            // error: error.message
         });
     }
 };
@@ -276,7 +274,7 @@ exports.updatePersonnelSkill = async (req, res) => {
         res.status(500).json({
             success: false,
             message: 'Error updating skill proficiency',
-            error: error.message
+            // error: error.message
         });
     }
 };
@@ -304,7 +302,7 @@ exports.removeSkillFromPersonnel = async (req, res) => {
         res.status(500).json({
             success: false,
             message: 'Error removing skill',
-            error: error.message
+            // error: error.message
         });
     }
 };

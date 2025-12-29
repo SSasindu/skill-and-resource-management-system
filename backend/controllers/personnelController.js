@@ -6,13 +6,14 @@ exports.getAllPersonnel = async (req, res) => {
         const query = `
         SELECT 
             p.id AS "id",
+            p.email AS "email",
             p.name AS "name",
             p.role AS "role",
             p.experience_level AS "experience_level",
             GROUP_CONCAT(s.skill_name ORDER BY s.skill_name SEPARATOR ', ') AS "skills"
-        FROM personnel_skills ps
-        LEFT JOIN personnel p ON ps.personnel_id=p.id
-        LEFT JOIN skills s ON ps.skill_id=s.id
+        FROM personnel p
+        LEFT JOIN personnel_skills ps ON p.id = ps.personnel_id
+        LEFT JOIN skills s ON ps.skill_id = s.id
         GROUP BY p.id
         ORDER BY p.id ASC;`;
 
@@ -94,7 +95,8 @@ exports.createPersonnel = async (req, res) => {
         res.status(201).json({
             success: true,
             message: 'Personnel created successfully',
-            data: newPersonnel[0]
+            data: newPersonnel[0],
+            id: result.insertId
         });
     } catch (error) {
         if (error.code === 'ER_DUP_ENTRY') {
@@ -164,7 +166,8 @@ exports.updatePersonnel = async (req, res) => {
         res.json({
             success: true,
             message: 'Personnel updated successfully',
-            data: updated[0]
+            data: updated[0],
+            id: id
         });
     } catch (error) {
         if (error.code === 'ER_DUP_ENTRY') {

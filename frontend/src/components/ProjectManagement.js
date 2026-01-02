@@ -23,6 +23,8 @@ function ProjectManagement() {
         skill_id: '',
         min_proficiency_level: 'Beginner'
     });
+    const [showModal, setShowModal] = useState(false);
+    const [selectedProjectDetails, setSelectedProjectDetails] = useState(null);
 
     useEffect(() => {
         fetchData();
@@ -146,6 +148,33 @@ function ProjectManagement() {
             case 'Planning': return 'badge-planning';
             case 'Active': return 'badge-active';
             case 'Completed': return 'badge-completed';
+            default: return '';
+        }
+    };
+
+    const handleViewDetails = async (project) => {
+        try {
+            // Fetch complete project details including required skills
+            const response = await projectsAPI.getById(project.id);
+            setSelectedProjectDetails(response.data.data);
+            setShowModal(true);
+        } catch (err) {
+            setError('Failed to fetch project details');
+            setTimeout(() => setError(''), 3000);
+        }
+    };
+
+    const handleCloseModal = () => {
+        setShowModal(false);
+        setSelectedProjectDetails(null);
+    };
+
+    const getProficiencyBadgeClass = (level) => {
+        switch (level) {
+            case 'Beginner': return 'badge-beginner';
+            case 'Intermediate': return 'badge-intermediate';
+            case 'Advanced': return 'badge-advanced';
+            case 'Expert': return 'badge-expert';
             default: return '';
         }
     };
@@ -326,6 +355,12 @@ function ProjectManagement() {
                                         </td>
                                         <td className="table-actions align-middle">
                                         <button
+                                            className="btn btn-info"
+                                            onClick={() => handleViewDetails(project)}
+                                        >
+                                            View Details
+                                        </button>
+                                        <button
                                             className="btn btn-warning"
                                             onClick={() => handleEdit(project)}
                                         >
@@ -345,6 +380,71 @@ function ProjectManagement() {
                     </div>
                 )}
             </div>
+
+            {/* Modal for viewing project details */}
+            {showModal && selectedProjectDetails && (
+                <div className="modal-overlay" onClick={handleCloseModal}>
+                    <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+                        <div className="modal-header">
+                            <h3>Project Details</h3>
+                            <button className="modal-close" onClick={handleCloseModal}>×</button>
+                        </div>
+                        <div className="modal-body">
+                            <div className="detail-item">
+                                <label>Project Name</label>
+                                <p><strong>{selectedProjectDetails.project_name}</strong></p>
+                            </div>
+                            <div className="detail-item">
+                                <label>Description</label>
+                                <p>{selectedProjectDetails.description || 'No description provided'}</p>
+                            </div>
+                            <div className="detail-item">
+                                <label>Start Date</label>
+                                <p>{new Date(selectedProjectDetails.start_date).toLocaleDateString('en-US', { 
+                                    year: 'numeric', 
+                                    month: 'long', 
+                                    day: 'numeric' 
+                                })}</p>
+                            </div>
+                            <div className="detail-item">
+                                <label>End Date</label>
+                                <p>{new Date(selectedProjectDetails.end_date).toLocaleDateString('en-US', { 
+                                    year: 'numeric', 
+                                    month: 'long', 
+                                    day: 'numeric' 
+                                })}</p>
+                            </div>
+                            <div className="detail-item">
+                                <label>Status</label>
+                                <p>
+                                    <span className={`badge ${getBadgeClass(selectedProjectDetails.status)}`}>
+                                        {selectedProjectDetails.status}
+                                    </span>
+                                </p>
+                            </div>
+                            <div className="detail-item">
+                                <label>Required Skills</label>
+                                {selectedProjectDetails.required_skills && selectedProjectDetails.required_skills.length > 0 ? (
+                                    <div className="skill-tags">
+                                        {selectedProjectDetails.required_skills.map((skill, index) => (
+                                            <div key={index} className="skill-tag">
+                                                <span>{skill.skill_name || skill}</span>
+                                                {skill.min_proficiency_level && (
+                                                    <span className="proficiency">
+                                                        Min: {skill.min_proficiency_level}
+                                                    </span>
+                                                )}
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <p>No required skills defined</p>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

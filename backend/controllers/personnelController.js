@@ -14,7 +14,7 @@ exports.getAllPersonnel = async (req, res) => {
         FROM personnel p
         LEFT JOIN personnel_skills ps ON p.id = ps.personnel_id
         LEFT JOIN skills s ON ps.skill_id = s.id
-        GROUP BY p.id
+        GROUP BY p.id, email, name, role, experience_level
         ORDER BY p.id ASC;`;
 
         const [rows] = await db.query(query);
@@ -31,11 +31,18 @@ exports.getAllPersonnel = async (req, res) => {
     }
 };
 
-// Get single personnel by ID
-exports.getPersonnelById = async (req, res) => {
+exports.getPersonnelWithSkills = async (req, res) => {
     try {
-        const [rows] = await db.query('SELECT * FROM personnel WHERE id = ?', [req.params.id]);
-        if (rows.length === 0) {
+        const query = `
+        SELECT 
+            ps.personnel_id AS "id",
+            GROUP_CONCAT(s.skill_name ORDER BY s.skill_name SEPARATOR ', ') AS "skills"
+        FROM personnel_skills ps
+        LEFT JOIN skills s ON ps.skill_id = s.id
+        GROUP BY id
+        HAVING id = ?;`;
+        const [personnel] = await db.query(query, [req.params.id]);
+        if (personnel.length === 0) {
             return res.status(404).json({
                 success: false,
                 message: 'Personnel not found'
@@ -43,7 +50,46 @@ exports.getPersonnelById = async (req, res) => {
         }
         res.json({
             success: true,
-            data: rows[0]
+            data: {
+                skills: personnel[0].skills
+            }
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: 'Error fetching personnel with skills',
+            error: error.message
+        });
+    }
+};
+
+// Get single personnel by ID
+exports.getPersonnelById = async (req, res) => {
+    try {
+        const query = `
+        SELECT 
+            p.id AS "id",
+            p.email AS "email",
+            p.name AS "name",
+            p.role AS "role",
+            p.experience_level AS "experience_level",
+            GROUP_CONCAT(s.skill_name ORDER BY s.skill_name SEPARATOR ', ') AS "skills",
+            GROUP_CONCAT(ps.proficiency_level ORDER BY s.skill_name SEPARATOR ', ') AS "proficiency_levels"
+        FROM personnel p
+        LEFT JOIN personnel_skills ps ON p.id = ps.personnel_id
+        LEFT JOIN skills s ON ps.skill_id = s.id
+        GROUP BY p.id
+        HAVING p.id = ?;`;
+        const [personnel] = await db.query(query, [req.params.id]);
+        if (personnel.length === 0) {
+            return res.status(404).json({
+                success: false,
+                message: 'Personnel not found'
+            });
+        }
+        res.json({
+            success: true,
+            data: personnel[0]
         });
     } catch (error) {
         res.status(500).json({
@@ -213,38 +259,38 @@ exports.deletePersonnel = async (req, res) => {
 };
 
 // Get personnel with their skills
-exports.getPersonnelWithSkills = async (req, res) => {
-    try {
-        const { id } = req.params;
+// exports.getPersonnelWithSkills = async (req, res) => {
+//     try {
+//         const { id } = req.params;
 
-        const [personnel] = await db.query('SELECT * FROM personnel WHERE id = ?', [id]);
-        if (personnel.length === 0) {
-            return res.status(404).json({
-                success: false,
-                message: 'Personnel not found'
-            });
-        }
+//         const [personnel] = await db.query('SELECT * FROM personnel WHERE id = ?', [id]);
+//         if (personnel.length === 0) {
+//             return res.status(404).json({
+//                 success: false,
+//                 message: 'Personnel not found'
+//             });
+//         }
 
-        const [skills] = await db.query(
-            `SELECT ps.id, s.id as skill_id, s.skill_name, s.category, ps.proficiency_level
-             FROM personnel_skills ps
-             JOIN skills s ON ps.skill_id = s.id
-             WHERE ps.personnel_id = ?`,
-            [id]
-        );
+//         const [skills] = await db.query(
+//             `SELECT ps.id, s.id as skill_id, s.skill_name, s.category, ps.proficiency_level
+//              FROM personnel_skills ps
+//              JOIN skills s ON ps.skill_id = s.id
+//              WHERE ps.personnel_id = ?`,
+//             [id]
+//         );
 
-        res.json({
-            success: true,
-            data: {
-                ...personnel[0],
-                skills: skills
-            }
-        });
-    } catch (error) {
-        res.status(500).json({
-            success: false,
-            message: 'Error fetching personnel with skills',
-            error: error.message
-        });
-    }
-};
+//         res.json({
+//             success: true,
+//             data: {
+//                 ...personnel[0],
+//                 skills: skills
+//             }
+//         });
+//     } catch (error) {
+//         res.status(500).json({
+//             success: false,
+//             message: 'Error fetching personnel with skills',
+//             error: error.message
+//         });
+//     }
+// };

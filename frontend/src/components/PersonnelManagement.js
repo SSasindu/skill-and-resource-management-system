@@ -18,6 +18,8 @@ function PersonnelManagement() {
     });
     const [selectedSkillId, setSelectedSkillId] = useState('');
     const [selectedProficiency, setSelectedProficiency] = useState('Beginner');
+    const [showModal, setShowModal] = useState(false);
+    const [selectedPerson, setSelectedPerson] = useState(null);
 
     useEffect(() => {
         fetchPersonnel();
@@ -176,6 +178,67 @@ function PersonnelManagement() {
         }
     };
 
+    const handleViewDetails = async (person) => {
+        try {
+            // Fetch complete personnel details including proficiency levels
+            const response = await personnelAPI.getById(person.id);
+            setSelectedPerson(response.data.data);
+            setShowModal(true);
+        } catch (err) {
+            // Fallback to the person object if API call fails
+            setSelectedPerson(person);
+            setShowModal(true);
+        }
+    };
+
+    const handleCloseModal = () => {
+        setShowModal(false);
+        setSelectedPerson(null);
+    };
+
+    const getProficiencyBadgeClass = (level) => {
+        switch (level) {
+            case 'Beginner': return 'badge-beginner';
+            case 'Intermediate': return 'badge-intermediate';
+            case 'Advanced': return 'badge-advanced';
+            case 'Expert': return 'badge-expert';
+            default: return '';
+        }
+    };
+
+    const handleRemoveSkillFromPerson = async (skillName) => {
+        if (!window.confirm(`Are you sure you want to remove "${skillName}" from ${selectedPerson.name}?`)) {
+            return;
+        }
+
+        try {
+            // Find the skill ID by name
+            const skill = skills.find(s => s.skill_name === skillName);
+            if (!skill) {
+                setError('Skill not found');
+                setTimeout(() => setError(''), 3000);
+                return;
+            }
+            console.log('Removing skill:', skill.id, 'from personnel:', selectedPerson);
+            // Call API to remove skill assignment
+            await skillsAPI.removeFromPersonnel(selectedPerson.id, skill.id);
+            
+            setSuccess('Skill removed successfully!');
+            setTimeout(() => setSuccess(''), 3000);
+            
+            // Refresh the modal data
+            const response = await personnelAPI.getById(selectedPerson.id);
+            setSelectedPerson(response.data.data);
+            
+            // Also refresh the main personnel list
+            await fetchPersonnel();
+        } catch (err) {
+            console.error('Error removing skill:', err);
+            setError(err.response?.data?.message || err.message || 'Failed to remove skill');
+            setTimeout(() => setError(''), 3000);
+        }
+    };
+
     if (loading) return <div className="loading">Loading personnel...</div>;
 
     return (
@@ -255,7 +318,7 @@ function PersonnelManagement() {
                                                 <option value="">-- Choose a skill --</option>
                                                 {skills.filter(skill => !formData.skills.some(s => s.skill_id === skill.id.toString())).map(skill => (
                                                     <option key={skill.id} value={skill.id}>
-                                                        {skill.skill_name} ({skill.category})
+                                                        {skill.skill_name} 
                                                     </option>
                                                 ))}
                                             </select>
@@ -359,7 +422,7 @@ function PersonnelManagement() {
                     <div style={{ overflowX: 'auto' }}>
                         <table className="table rounded-table">
                             <thead>
-                                <tr>
+                                <tr className='table-header'>
                                     <th>Name</th>
                                     <th>Role</th>
                                     <th>Experience Level</th>
@@ -384,6 +447,12 @@ function PersonnelManagement() {
                                         </td>
                                         <td className="table-actions align-middle py-7">
                                         <button
+                                            className="btn btn-info"
+                                            onClick={() => handleViewDetails(person)}
+                                        >
+                                            View Details
+                                        </button>
+                                        <button
                                             className="btn btn-warning"
                                             onClick={() => handleEdit(person)}
                                         >
@@ -399,10 +468,150 @@ function PersonnelManagement() {
                                 </tr>
                             ))}
                         </tbody>
-                    </table>
+                        </table>
                     </div>
                 )}
             </div>
+
+            {/* Modal for viewing personnel details */}
+            {showModal && selectedPerson && (
+                <div className="modal-overlay" onClick={handleCloseModal}>
+                    <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+                        <div className="modal-header">
+                            <h3>Personnel Details</h3>
+                            <button className="modal-close" onClick={handleCloseModal}>×</button>
+                        </div>
+                        <div className="modal-body">
+                            <div className="detail-item">
+                                <label>Name</label>
+                                <p>{selectedPerson.name}</p>
+                            </div>
+                            <div className="detail-item">
+                                <label>Email</label>
+                                <p>{selectedPerson.email}</p>
+                            </div>
+                            <div className="detail-item">
+                                <label>Role/Title</label>
+                                <p>{selectedPerson.role}</p>
+                            </div>
+                            <div className="detail-item">
+                                <label>Experience Level</label>
+                                <p>
+                                    <span className={`badge ${getBadgeClass(selectedPerson.experience_level)}`}>
+                                        {selectedPerson.experience_level}
+                                    </span>
+                                </p>
+                            </div>
+                            <div className="detail-item">
+                                <label>Skills & Proficiency Levels</label>
+                                {(() => {
+                                    // Check if we have proficiency_levels from the API
+                                    if (selectedPerson.proficiency_levels && selectedPerson.skills) {
+                                        const skillNames = typeof selectedPerson.skills === 'string' 
+                                            ? selectedPerson.skills.split(', ') 
+                                            : selectedPerson.skills;
+                                        const proficiencyLevels = selectedPerson.proficiency_levels.split(', ');
+                                        
+                                        if (skillNames.length > 0 && skillNames[0]) {
+                                            return (
+                                                <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '10px' }}>
+                                                    <thead>
+                                                        <tr style={{ borderBottom: '2px solid #ddd' }}>
+                                                            <th style={{ padding: '8px', textAlign: 'left', fontWeight: '600', color: '#34495e' }}>Skill</th>
+                                                            <th style={{ padding: '8px', textAlign: 'left', fontWeight: '600', color: '#34495e' }}>Proficiency Level</th>
+                                                            <th style={{ padding: '8px', textAlign: 'center', fontWeight: '600', color: '#34495e', width: '80px' }}>Action</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        {skillNames.map((skillName, index) => (
+                                                            <tr key={index} style={{ borderBottom: '1px solid #eee' }}>
+                                                                <td style={{ padding: '10px 8px' }}>{skillName}</td>
+                                                                <td style={{ padding: '10px 8px' }}>
+                                                                    <span className={`badge ${getProficiencyBadgeClass(proficiencyLevels[index])}`}>
+                                                                        {proficiencyLevels[index]}
+                                                                    </span>
+                                                                </td>
+                                                                <td style={{ padding: '10px 8px', textAlign: 'center' }}>
+                                                                    <button
+                                                                        onClick={() => handleRemoveSkillFromPerson(skillName)}
+                                                                        style={{
+                                                                            background: 'none',
+                                                                            border: 'none',
+                                                                            color: '#e74c3c',
+                                                                            cursor: 'pointer',
+                                                                            fontSize: '18px',
+                                                                            padding: '4px 8px',
+                                                                            transition: 'color 0.2s'
+                                                                        }}
+                                                                        onMouseOver={(e) => e.target.style.color = '#c0392b'}
+                                                                        onMouseOut={(e) => e.target.style.color = '#e74c3c'}
+                                                                        title="Remove skill"
+                                                                    >
+                                                                        🗑️
+                                                                    </button>
+                                                                </td>
+                                                            </tr>
+                                                        ))}
+                                                    </tbody>
+                                                </table>
+                                            );
+                                        }
+                                    }
+                                    // Fallback for array of skill objects
+                                    else if (Array.isArray(selectedPerson.skills) && selectedPerson.skills.length > 0) {
+                                        const firstSkill = selectedPerson.skills[0];
+                                        if (typeof firstSkill === 'object' && firstSkill.skill_name) {
+                                            return (
+                                                <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '10px' }}>
+                                                    <thead>
+                                                        <tr style={{ borderBottom: '2px solid #ddd' }}>
+                                                            <th style={{ padding: '8px', textAlign: 'left', fontWeight: '600', color: '#34495e' }}>Skill</th>
+                                                            <th style={{ padding: '8px', textAlign: 'left', fontWeight: '600', color: '#34495e' }}>Proficiency Level</th>
+                                                            <th style={{ padding: '8px', textAlign: 'center', fontWeight: '600', color: '#34495e', width: '80px' }}>Action</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        {selectedPerson.skills.map((skill, index) => (
+                                                            <tr key={index} style={{ borderBottom: '1px solid #eee' }}>
+                                                                <td style={{ padding: '10px 8px' }}>{skill.skill_name}</td>
+                                                                <td style={{ padding: '10px 8px' }}>
+                                                                    <span className={`badge ${getProficiencyBadgeClass(skill.proficiency_level)}`}>
+                                                                        {skill.proficiency_level}
+                                                                    </span>
+                                                                </td>
+                                                                <td style={{ padding: '10px 8px', textAlign: 'center' }}>
+                                                                    <button
+                                                                        onClick={() => handleRemoveSkillFromPerson(skill.skill_name)}
+                                                                        style={{
+                                                                            background: 'none',
+                                                                            border: 'none',
+                                                                            color: '#e74c3c',
+                                                                            cursor: 'pointer',
+                                                                            fontSize: '18px',
+                                                                            padding: '4px 8px',
+                                                                            transition: 'color 0.2s'
+                                                                        }}
+                                                                        onMouseOver={(e) => e.target.style.color = '#c0392b'}
+                                                                        onMouseOut={(e) => e.target.style.color = '#e74c3c'}
+                                                                        title="Remove skill"
+                                                                    >
+                                                                        🗑️
+                                                                    </button>
+                                                                </td>
+                                                            </tr>
+                                                        ))}
+                                                    </tbody>
+                                                </table>
+                                            );
+                                        }
+                                    }
+                                    return <p>No skills assigned</p>;
+                                })()}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

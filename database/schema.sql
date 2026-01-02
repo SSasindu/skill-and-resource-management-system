@@ -27,9 +27,6 @@ CREATE TABLE personnel (
 CREATE TABLE skills (
     id INT AUTO_INCREMENT PRIMARY KEY,
     skill_name VARCHAR(255) NOT NULL UNIQUE,
-    category VARCHAR(255) NOT NULL,
-    description TEXT,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     INDEX idx_category (category)
 );
 

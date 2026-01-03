@@ -262,9 +262,6 @@ GET /api/matching/project/1
 2. **skills**
    - id (Primary Key)
    - skill_name (Unique)
-   - category
-   - description
-   - created_at
 
 3. **personnel_skills** (Junction Table)
    - id (Primary Key)
@@ -301,10 +298,9 @@ The database schema includes sample data:
 
 ### Testing with Postman/Thunder Client
 
-See the `api-testing-examples` folder for:
+See the `api-testing` folder for:
 - Collection of API requests
 - Screenshots of successful API calls
-- Example request/response payloads
 
 ### Manual Testing Workflow
 
@@ -363,7 +359,7 @@ skill-and-resource-management-system/
 
 1. Navigate to the "Personnel" tab
 2. Click "Add New Personnel"
-3. Fill in required fields (name, email, role, experience level)
+3. Fill in required fields (name, email, role, experience level, skills)
 4. Click "Create" to save
 5. Use "Edit" or "Delete" buttons to manage existing personnel
 
@@ -371,17 +367,13 @@ skill-and-resource-management-system/
 
 1. Navigate to the "Skills" tab
 2. Click "Add New Skill" to create skills
-3. Click "Assign Skill to Personnel" to link skills with proficiency levels
-4. Select personnel, skill, and proficiency level
-5. Submit to create the assignment
 
 ### Managing Projects
 
 1. Navigate to the "Projects" tab
 2. Click "Add New Project"
 3. Fill in project details and timeline
-4. Click "Add Required Skills" to define skill requirements
-5. Select project, skill, and minimum proficiency level
+4. Select required skills and minimum proficiency level in the dropdown menu and save
 
 ### Finding Matching Personnel
 
@@ -445,10 +437,6 @@ When modifying schema:
 4. Push to the branch
 5. Create a Pull Request
 
-## 📄 License
-
-This project is licensed under the MIT License.
-
 ## 👨‍💻 Author
 
 Developed as a full-stack skill and resource management solution for small consultancies and tech agencies.
@@ -466,7 +454,3 @@ For issues and questions:
 - Implements RESTful API best practices
 - Responsive design for all devices
 
----
-
-**Version**: 1.0.0  
-**Last Updated**: December 2025

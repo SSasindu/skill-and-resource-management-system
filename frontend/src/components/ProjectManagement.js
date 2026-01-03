@@ -20,11 +20,14 @@ function ProjectManagement() {
     });
     const [skillFormData, setSkillFormData] = useState({
         project_id: '',
-        skill_id: '',
-        min_proficiency_level: 'Beginner'
+        skills: [] // Changed to array to hold multiple skills
     });
+    const [selectedSkillId, setSelectedSkillId] = useState('');
+    const [selectedMinProficiency, setSelectedMinProficiency] = useState('Beginner');
     const [showModal, setShowModal] = useState(false);
     const [selectedProjectDetails, setSelectedProjectDetails] = useState(null);
+    const [searchTerm, setSearchTerm] = useState('');
+    const [searchFilter, setSearchFilter] = useState('All');
 
     useEffect(() => {
         fetchData();
@@ -90,11 +93,39 @@ function ProjectManagement() {
 
     const handleSkillSubmit = async (e) => {
         e.preventDefault();
+        
+        if (skillFormData.skills.length === 0) {
+            setError('Please add at least one required skill');
+            setTimeout(() => setError(''), 3000);
+            return;
+        }
+        
         try {
-            await projectsAPI.addRequiredSkill(skillFormData);
-            setSuccess('Required skill added to project!');
+            // Add each skill to the project
+            const skillAssignments = skillFormData.skills.map(async (skill) => {
+                try {
+                    await projectsAPI.addRequiredSkill({
+                        project_id: skillFormData.project_id,
+                        skill_id: skill.skill_id,
+                        min_proficiency_level: skill.min_proficiency_level
+                    });
+                    return { success: true };
+                } catch (err) {
+                    // Silently ignore duplicate skill errors
+                    if (err.response?.status === 400 && err.response?.data?.message?.includes('already exists')) {
+                        return { success: true, duplicate: true };
+                    }
+                    return { success: false, error: err };
+                }
+            });
+            
+            await Promise.all(skillAssignments);
+            
+            setSuccess('Required skills added to project!');
             setShowSkillForm(false);
-            setSkillFormData({ project_id: '', skill_id: '', min_proficiency_level: 'Beginner' });
+            setSkillFormData({ project_id: '', skills: [] });
+            setSelectedSkillId('');
+            setSelectedMinProficiency('Beginner');
             fetchData();
             setTimeout(() => setSuccess(''), 3000);
         } catch (err) {
@@ -140,7 +171,45 @@ function ProjectManagement() {
             end_date: '',
             status: 'Planning'
         });
-        setSkillFormData({ project_id: '', skill_id: '', min_proficiency_level: 'Beginner' });
+        setSkillFormData({ project_id: '', skills: [] });
+        setSelectedSkillId('');
+        setSelectedMinProficiency('Beginner');
+    };
+
+    const handleAddSkillToProject = () => {
+        if (!selectedSkillId) {
+            setError('Please select a skill');
+            setTimeout(() => setError(''), 2000);
+            return;
+        }
+        
+        const currentSkills = skillFormData.skills || [];
+        const skillExists = currentSkills.some(s => s.skill_id === selectedSkillId);
+        
+        if (skillExists) {
+            setSuccess('This skill is already added to this project');
+            setTimeout(() => setSuccess(''), 2000);
+            return;
+        }
+        
+        setSkillFormData({
+            ...skillFormData,
+            skills: [...currentSkills, { skill_id: selectedSkillId, min_proficiency_level: selectedMinProficiency }]
+        });
+        setSelectedSkillId('');
+        setSelectedMinProficiency('Beginner');
+    };
+
+    const handleRemoveSkillFromForm = (skillId) => {
+        setSkillFormData({
+            ...skillFormData,
+            skills: skillFormData.skills.filter(s => s.skill_id !== skillId)
+        });
+    };
+
+    const getSkillName = (skillId) => {
+        const skill = skills.find(s => s.id.toString() === skillId.toString());
+        return skill ? skill.skill_name : '';
     };
 
     const getBadgeClass = (status) => {
@@ -157,6 +226,7 @@ function ProjectManagement() {
             // Fetch complete project details including required skills
             const response = await projectsAPI.getById(project.id);
             setSelectedProjectDetails(response.data.data);
+            console.log('Project details:', response.data.data);
             setShowModal(true);
         } catch (err) {
             setError('Failed to fetch project details');
@@ -178,6 +248,75 @@ function ProjectManagement() {
             default: return '';
         }
     };
+
+    const handleRemoveSkillFromProject = async (skillName) => {
+        if (!window.confirm(`Are you sure you want to remove "${skillName}" from ${selectedProjectDetails.project_name}?`)) {
+            return;
+        }
+
+        try {
+            // Fetch project with skills to get the full skill objects with IDs
+            const response = await projectsAPI.getWithSkills(selectedProjectDetails.id);
+            const projectWithSkills = response.data.data;
+            console.log('Fetched project with skills for removal:', selectedProjectDetails.id);
+            console.log('Project with skills:', projectWithSkills);
+            // Find the required skill record to get its ID
+            const requiredSkill = projectWithSkills.required_skills?.find(
+                s => s.skill_name === skillName
+            );
+            console.log('Found required skill to remove:', requiredSkill);
+            
+            if (!requiredSkill || !requiredSkill.id) {
+                setError('Required skill record not found');
+                setTimeout(() => setError(''), 3000);
+                return;
+            }
+
+            // Call API to remove required skill
+            await projectsAPI.removeRequiredSkill(requiredSkill.id);
+            
+            setSuccess('Required skill removed successfully!');
+            setTimeout(() => setSuccess(''), 3000);
+            
+            // Refresh the modal data
+            const updatedResponse = await projectsAPI.getById(selectedProjectDetails.id);
+            setSelectedProjectDetails(updatedResponse.data.data);
+            
+            // Also refresh the main project list
+            await fetchData();
+        } catch (err) {
+            console.error('Error removing required skill:', err);
+            setError(err.response?.data?.message || err.message || 'Failed to remove required skill');
+            setTimeout(() => setError(''), 3000);
+        }
+    };
+
+    // Filter projects based on search term and filter type
+    const filteredProjects = projects.filter(project => {
+        if (!searchTerm) return true;
+        
+        const term = searchTerm.toLowerCase();
+        
+        switch (searchFilter) {
+            case 'Project Name':
+                return project.project_name.toLowerCase().includes(term);
+            case 'Description':
+                return (project.description || '').toLowerCase().includes(term);
+            case 'Status':
+                return project.status.toLowerCase().includes(term);
+            case 'Required Skills':
+                const skills = Array.isArray(project.required_skills) ? project.required_skills.join(', ') : project.required_skills || '';
+                return skills.toLowerCase().includes(term);
+            case 'All':
+            default:
+                return (
+                    project.project_name.toLowerCase().includes(term) ||
+                    (project.description || '').toLowerCase().includes(term) ||
+                    project.status.toLowerCase().includes(term) ||
+                    (Array.isArray(project.required_skills) ? project.required_skills.join(', ') : project.required_skills || '').toLowerCase().includes(term)
+                );
+        }
+    });
 
     if (loading) return <div className="loading">Loading projects...</div>;
 
@@ -201,6 +340,65 @@ function ProjectManagement() {
                         </>
                     )}
                 </div>
+
+                {/* Search Bar */}
+                {!showProjectForm && !showSkillForm && projects.length > 0 && (
+                    <div style={{ 
+                        marginBottom: '20px',
+                        padding: '15px',
+                        backgroundColor: '#f5f5f5',
+                        borderRadius: '8px',
+                        border: '1px solid #ddd'
+                    }}>
+                        <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                            <label style={{ fontWeight: 'bold', minWidth: '80px' }}>Search:</label>
+                            <select
+                                value={searchFilter}
+                                onChange={(e) => setSearchFilter(e.target.value)}
+                                style={{ padding: '8px', borderRadius: '4px', border: '1px solid #ccc', minWidth: '150px' }}
+                            >
+                                <option value="All">All Fields</option>
+                                <option value="Project Name">Project Name</option>
+                                <option value="Description">Description</option>
+                                <option value="Status">Status</option>
+                                <option value="Required Skills">Required Skills</option>
+                            </select>
+                            <input
+                                type="text"
+                                placeholder={`Search by ${searchFilter.toLowerCase()}...`}
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                style={{ 
+                                    flex: 1,
+                                    padding: '8px 12px',
+                                    borderRadius: '4px',
+                                    border: '1px solid #ccc',
+                                    fontSize: '14px'
+                                }}
+                            />
+                            {searchTerm && (
+                                <button
+                                    onClick={() => setSearchTerm('')}
+                                    style={{
+                                        padding: '8px 12px',
+                                        backgroundColor: '#6c757d',
+                                        color: 'white',
+                                        border: 'none',
+                                        borderRadius: '4px',
+                                        cursor: 'pointer'
+                                    }}
+                                >
+                                    Clear
+                                </button>
+                            )}
+                        </div>
+                        {searchTerm && (
+                            <div style={{ marginTop: '10px', fontSize: '14px', color: '#666' }}>
+                                Found {filteredProjects.length} result{filteredProjects.length !== 1 ? 's' : ''}
+                            </div>
+                        )}
+                    </div>
+                )}
 
                 {showProjectForm && (
                     <form onSubmit={handleProjectSubmit} style={{ marginBottom: '30px' }}>
@@ -285,37 +483,110 @@ function ProjectManagement() {
                             </select>
                         </div>
                         <div className="form-group">
-                            <label>Select Skill *</label>
-                            <select
-                                name="skill_id"
-                                value={skillFormData.skill_id}
-                                onChange={handleSkillInputChange}
-                                required
-                            >
-                                <option value="">-- Select Skill --</option>
-                                {skills.map((skill) => (
-                                    <option key={skill.id} value={skill.id}>
-                                        {skill.skill_name} ({skill.category})
-                                    </option>
-                                ))}
-                            </select>
-                        </div>
-                        <div className="form-group">
-                            <label>Minimum Proficiency Level *</label>
-                            <select
-                                name="min_proficiency_level"
-                                value={skillFormData.min_proficiency_level}
-                                onChange={handleSkillInputChange}
-                                required
-                            >
-                                <option value="Beginner">Beginner</option>
-                                <option value="Intermediate">Intermediate</option>
-                                <option value="Advanced">Advanced</option>
-                                <option value="Expert">Expert</option>
-                            </select>
+                            <label>Required Skills *</label>
+                            {skills.length === 0 ? (
+                                <p style={{ color: '#999', padding: '10px', backgroundColor: '#f9f9f9', borderRadius: '4px' }}>No skills available. Please create skills first.</p>
+                            ) : (
+                                <div style={{ marginBottom: '10px' }}>
+                                    <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-end' }}>
+                                        <div style={{ flex: '2' }}>
+                                            <label style={{ fontSize: '12px', marginBottom: '5px', display: 'block' }}>Select Skill</label>
+                                            <select
+                                                value={selectedSkillId}
+                                                onChange={(e) => setSelectedSkillId(e.target.value)}
+                                                style={{ width: '100%' }}
+                                            >
+                                                <option value="">-- Choose a skill --</option>
+                                                {skills.filter(skill => !skillFormData.skills.some(s => s.skill_id === skill.id.toString())).map(skill => (
+                                                    <option key={skill.id} value={skill.id}>
+                                                        {skill.skill_name}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                        <div style={{ flex: '1' }}>
+                                            <label style={{ fontSize: '12px', marginBottom: '5px', display: 'block' }}>Minimum Proficiency Level</label>
+                                            <select
+                                                value={selectedMinProficiency}
+                                                onChange={(e) => setSelectedMinProficiency(e.target.value)}
+                                                style={{ width: '100%' }}
+                                            >
+                                                <option value="Beginner">Beginner</option>
+                                                <option value="Intermediate">Intermediate</option>
+                                                <option value="Advanced">Advanced</option>
+                                                <option value="Expert">Expert</option>
+                                            </select>
+                                        </div>
+                                        <button 
+                                            type="button" 
+                                            onClick={handleAddSkillToProject}
+                                            className="btn btn-success"
+                                            style={{ padding: '10px 20px', height: 'fit-content' }}
+                                        >
+                                            + Add
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+                            
+                            {/* Display added skills */}
+                            {skillFormData.skills.length > 0 && (
+                                <div style={{ 
+                                    border: '1px solid #ddd', 
+                                    borderRadius: '4px', 
+                                    padding: '10px',
+                                    backgroundColor: '#f9f9f9',
+                                    marginTop: '10px'
+                                }}>
+                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                                        {skillFormData.skills.map((skillItem, index) => (
+                                            <div key={index} style={{
+                                                display: 'inline-flex',
+                                                alignItems: 'center',
+                                                backgroundColor: '#007bff',
+                                                color: 'white',
+                                                padding: '6px 12px',
+                                                borderRadius: '20px',
+                                                fontSize: '14px'
+                                            }}>
+                                                <span>{getSkillName(skillItem.skill_id)}</span>
+                                                <span style={{ 
+                                                    marginLeft: '6px', 
+                                                    padding: '2px 6px',
+                                                    backgroundColor: 'rgba(255,255,255,0.2)',
+                                                    borderRadius: '10px',
+                                                    fontSize: '11px'
+                                                }}>
+                                                    Min: {skillItem.min_proficiency_level}
+                                                </span>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleRemoveSkillFromForm(skillItem.skill_id)}
+                                                    style={{
+                                                        marginLeft: '8px',
+                                                        background: 'none',
+                                                        border: 'none',
+                                                        color: 'white',
+                                                        cursor: 'pointer',
+                                                        fontSize: '16px',
+                                                        padding: '0',
+                                                        lineHeight: '1'
+                                                    }}
+                                                >
+                                                    ×
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                            
+                            {skillFormData.skills.length === 0 && (
+                                <small style={{ color: '#d9534f', marginTop: '5px', display: 'block' }}>Please add at least one required skill</small>
+                            )}
                         </div>
                         <button type="submit" className="btn btn-success">
-                            Add Required Skill
+                            Add Required Skills
                         </button>
                         <button type="button" className="btn btn-secondary" onClick={handleCancel}>
                             Cancel
@@ -327,6 +598,11 @@ function ProjectManagement() {
                     <div className="empty-state">
                         <h3>No projects found</h3>
                         <p>Create your first project to get started</p>
+                    </div>
+                ) : filteredProjects.length === 0 ? (
+                    <div className="empty-state">
+                        <h3>No results found</h3>
+                        <p>No projects match your search criteria</p>
                     </div>
                 ) : (
                     <div style={{ overflowX: 'auto' }}>
@@ -342,7 +618,7 @@ function ProjectManagement() {
                                 </tr>
                             </thead>
                             <tbody>
-                                {projects.map((project) => (
+                                {filteredProjects.map((project) => (
                                     <tr key={project.id}>
                                         <td className="align-middle"><strong>{project.project_name}</strong></td>
                                         <td className="align-middle">{project.description || '-'}</td>
@@ -423,23 +699,111 @@ function ProjectManagement() {
                                 </p>
                             </div>
                             <div className="detail-item">
-                                <label>Required Skills</label>
-                                {selectedProjectDetails.required_skills && selectedProjectDetails.required_skills.length > 0 ? (
-                                    <div className="skill-tags">
-                                        {selectedProjectDetails.required_skills.map((skill, index) => (
-                                            <div key={index} className="skill-tag">
-                                                <span>{skill.skill_name || skill}</span>
-                                                {skill.min_proficiency_level && (
-                                                    <span className="proficiency">
-                                                        Min: {skill.min_proficiency_level}
-                                                    </span>
-                                                )}
-                                            </div>
-                                        ))}
-                                    </div>
-                                ) : (
-                                    <p>No required skills defined</p>
-                                )}
+                                <label>Required Skills & Minimum Proficiency Levels</label>
+                                {(() => {
+                                    // Check if required_skills is a string (comma-separated from GROUP_CONCAT)
+                                    if (selectedProjectDetails.required_skills && typeof selectedProjectDetails.required_skills === 'string') {
+                                        const skillNames = selectedProjectDetails.required_skills.split(', ');
+                                        const proficiencyLevels = selectedProjectDetails.min_proficiency_level 
+                                            ? selectedProjectDetails.min_proficiency_level.split(', ') 
+                                            : [];
+                                        
+                                        if (skillNames.length > 0 && skillNames[0]) {
+                                            return (
+                                                <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '10px' }}>
+                                                    <thead>
+                                                        <tr style={{ borderBottom: '2px solid #ddd' }}>
+                                                            <th style={{ padding: '8px', textAlign: 'left', fontWeight: '600', color: '#34495e' }}>Skill</th>
+                                                            <th style={{ padding: '8px', textAlign: 'left', fontWeight: '600', color: '#34495e' }}>Minimum Proficiency Level</th>
+                                                            <th style={{ padding: '8px', textAlign: 'center', fontWeight: '600', color: '#34495e', width: '80px' }}>Action</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        {skillNames.map((skillName, index) => (
+                                                            <tr key={index} style={{ borderBottom: '1px solid #eee' }}>
+                                                                <td style={{ padding: '10px 8px' }}>{skillName}</td>
+                                                                <td style={{ padding: '10px 8px' }}>
+                                                                    {proficiencyLevels[index] ? (
+                                                                        <span className={`badge ${getProficiencyBadgeClass(proficiencyLevels[index])}`}>
+                                                                            {proficiencyLevels[index]}
+                                                                        </span>
+                                                                    ) : '-'}
+                                                                </td>
+                                                                <td style={{ padding: '10px 8px', textAlign: 'center' }}>
+                                                                    <button
+                                                                        onClick={() => handleRemoveSkillFromProject(skillName)}
+                                                                        style={{
+                                                                            background: 'none',
+                                                                            border: 'none',
+                                                                            color: '#e74c3c',
+                                                                            cursor: 'pointer',
+                                                                            fontSize: '18px',
+                                                                            padding: '4px 8px',
+                                                                            transition: 'color 0.2s'
+                                                                        }}
+                                                                        onMouseOver={(e) => e.target.style.color = '#c0392b'}
+                                                                        onMouseOut={(e) => e.target.style.color = '#e74c3c'}
+                                                                        title="Remove required skill"
+                                                                    >
+                                                                        🗑️
+                                                                    </button>
+                                                                </td>
+                                                            </tr>
+                                                        ))}
+                                                    </tbody>
+                                                </table>
+                                            );
+                                        }
+                                    }
+                                    // Fallback for array format
+                                    else if (Array.isArray(selectedProjectDetails.required_skills) && selectedProjectDetails.required_skills.length > 0) {
+                                        return (
+                                            <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '10px' }}>
+                                                <thead>
+                                                    <tr style={{ borderBottom: '2px solid #ddd' }}>
+                                                        <th style={{ padding: '8px', textAlign: 'left', fontWeight: '600', color: '#34495e' }}>Skill</th>
+                                                        <th style={{ padding: '8px', textAlign: 'left', fontWeight: '600', color: '#34495e' }}>Minimum Proficiency Level</th>
+                                                        <th style={{ padding: '8px', textAlign: 'center', fontWeight: '600', color: '#34495e', width: '80px' }}>Action</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {selectedProjectDetails.required_skills.map((skill, index) => (
+                                                        <tr key={index} style={{ borderBottom: '1px solid #eee' }}>
+                                                            <td style={{ padding: '10px 8px' }}>{skill.skill_name || skill}</td>
+                                                            <td style={{ padding: '10px 8px' }}>
+                                                                {skill.min_proficiency_level ? (
+                                                                    <span className={`badge ${getProficiencyBadgeClass(skill.min_proficiency_level)}`}>
+                                                                        {skill.min_proficiency_level}
+                                                                    </span>
+                                                                ) : '-'}
+                                                            </td>
+                                                            <td style={{ padding: '10px 8px', textAlign: 'center' }}>
+                                                                <button
+                                                                    onClick={() => handleRemoveSkillFromProject(skill.skill_name || skill)}
+                                                                    style={{
+                                                                        background: 'none',
+                                                                        border: 'none',
+                                                                        color: '#e74c3c',
+                                                                        cursor: 'pointer',
+                                                                        fontSize: '18px',
+                                                                        padding: '4px 8px',
+                                                                        transition: 'color 0.2s'
+                                                                    }}
+                                                                    onMouseOver={(e) => e.target.style.color = '#c0392b'}
+                                                                    onMouseOut={(e) => e.target.style.color = '#e74c3c'}
+                                                                    title="Remove required skill"
+                                                                >
+                                                                    🗑️
+                                                                </button>
+                                                            </td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        );
+                                    }
+                                    return <p>No required skills defined</p>;
+                                })()}
                             </div>
                         </div>
                     </div>

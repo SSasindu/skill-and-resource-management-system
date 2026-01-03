@@ -60,6 +60,7 @@ exports.matchPersonnelToProject = async (req, res) => {
 
             // Check if person has all required skills with sufficient proficiency
             let hasAllSkills = true;
+            let partiallyMatched = false;
             let matchedSkills = [];
             let totalMatch = 0;
 

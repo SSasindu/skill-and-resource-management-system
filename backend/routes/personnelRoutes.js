@@ -9,7 +9,7 @@ router.post('/', personnelController.createPersonnel);
 router.put('/:id', personnelController.updatePersonnel);
 router.delete('/:id', personnelController.deletePersonnel);
 
-// Get personnel with skills
-router.get('/:id/skills', personnelController.getPersonnelWithSkills);
+// Delete personnel with skills
+router.delete('/:id/skills/:skillId', personnelController.deleteIdOfPersonnelWithSkills);
 
 module.exports = router;

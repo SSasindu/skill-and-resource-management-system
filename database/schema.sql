@@ -122,3 +122,22 @@ INSERT INTO project_required_skills (project_id, skill_id, min_proficiency_level
 (2, 8, 'Intermediate'),-- Mobile App: TypeScript - Intermediate
 (3, 4, 'Advanced'),    -- Cloud Migration: AWS - Advanced
 (3, 6, 'Intermediate');-- Cloud Migration: Docker - Intermediate
+
+-- Functions
+
+DELIMITER $$
+CREATE FUNCTION find_id (person INT, skill INT)
+RETURNS INT
+DETERMINISTIC
+BEGIN
+	DECLARE assignId INT;
+    
+	SELECT 
+		ps.id INTO assignId
+	FROM personnel_skills ps
+	WHERE personnel_id = person AND skill_id=skill
+    LIMIT 1;
+    
+    RETURN assignId;
+END$$
+DELIMITER ;

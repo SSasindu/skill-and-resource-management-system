@@ -29,23 +29,8 @@ export const skillsAPI = {
     assignToPersonnel: (data) => api.post('/skills/assign', data),
     updateAssignment: (id, data) => api.put(`/skills/assignment/${id}`, data),
     removeAssignment: (id) => api.delete(`/skills/assignment/${id}`),
-    removeFromPersonnel: async (personnelId, skillId) => {
-        // Fetch personnel with skills to find the assignment ID
-        const response = await api.get(`/personnel/${personnelId}/skills`);
-        const skills = response.data.data.skills;
-        
-        if (!skills || !Array.isArray(skills)) {
-            throw new Error('No skills found for this personnel');
-        }
-        
-        const assignment = skills.find(s => s.skill_id === skillId);
-        
-        if (!assignment) {
-            throw new Error('Skill assignment not found');
-        }
-        
-        return api.delete(`/skills/assignment/${assignment.id}`);
-    }
+    removeFromPersonnel: (personnelId, skillId) => api.delete(`/personnel/${personnelId}/skills/${skillId}`)
+
 };
 
 // Projects API

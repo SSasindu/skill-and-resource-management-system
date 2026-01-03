@@ -20,6 +20,8 @@ function PersonnelManagement() {
     const [selectedProficiency, setSelectedProficiency] = useState('Beginner');
     const [showModal, setShowModal] = useState(false);
     const [selectedPerson, setSelectedPerson] = useState(null);
+    const [searchTerm, setSearchTerm] = useState('');
+    const [searchFilter, setSearchFilter] = useState('All');
 
     useEffect(() => {
         fetchPersonnel();
@@ -219,7 +221,6 @@ function PersonnelManagement() {
                 setTimeout(() => setError(''), 3000);
                 return;
             }
-            console.log('Removing skill:', skill.id, 'from personnel:', selectedPerson);
             // Call API to remove skill assignment
             await skillsAPI.removeFromPersonnel(selectedPerson.id, skill.id);
             
@@ -239,6 +240,33 @@ function PersonnelManagement() {
         }
     };
 
+    // Filter personnel based on search term and filter type
+    const filteredPersonnel = personnel.filter(person => {
+        if (!searchTerm) return true;
+        
+        const term = searchTerm.toLowerCase();
+        
+        switch (searchFilter) {
+            case 'Name':
+                return person.name.toLowerCase().includes(term);
+            case 'Role':
+                return person.role.toLowerCase().includes(term);
+            case 'Experience Level':
+                return person.experience_level.toLowerCase().includes(term);
+            case 'Skills':
+                const skills = Array.isArray(person.skills) ? person.skills.join(', ') : person.skills || '';
+                return skills.toLowerCase().includes(term);
+            case 'All':
+            default:
+                return (
+                    person.name.toLowerCase().includes(term) ||
+                    person.role.toLowerCase().includes(term) ||
+                    person.experience_level.toLowerCase().includes(term) ||
+                    (Array.isArray(person.skills) ? person.skills.join(', ') : person.skills || '').toLowerCase().includes(term)
+                );
+        }
+    });
+
     if (loading) return <div className="loading">Loading personnel...</div>;
 
     return (
@@ -253,6 +281,66 @@ function PersonnelManagement() {
                     <button className="btn btn-primary" onClick={() => setShowForm(true)}>
                         Add New Personnel
                     </button>
+                )}
+
+                {/* Search Bar */}
+                {!showForm && personnel.length > 0 && (
+                    <div style={{ 
+                        marginTop: '20px', 
+                        marginBottom: '20px',
+                        padding: '15px',
+                        backgroundColor: '#f5f5f5',
+                        borderRadius: '8px',
+                        border: '1px solid #ddd'
+                    }}>
+                        <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                            <label style={{ fontWeight: 'bold', minWidth: '80px' }}>Search:</label>
+                            <select
+                                value={searchFilter}
+                                onChange={(e) => setSearchFilter(e.target.value)}
+                                style={{ padding: '8px', borderRadius: '4px', border: '1px solid #ccc', minWidth: '150px' }}
+                            >
+                                <option value="All">All Fields</option>
+                                <option value="Name">Name</option>
+                                <option value="Role">Role</option>
+                                <option value="Experience Level">Experience Level</option>
+                                <option value="Skills">Skills</option>
+                            </select>
+                            <input
+                                type="text"
+                                placeholder={`Search by ${searchFilter.toLowerCase()}...`}
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                style={{ 
+                                    flex: 1,
+                                    padding: '8px 12px',
+                                    borderRadius: '4px',
+                                    border: '1px solid #ccc',
+                                    fontSize: '14px'
+                                }}
+                            />
+                            {searchTerm && (
+                                <button
+                                    onClick={() => setSearchTerm('')}
+                                    style={{
+                                        padding: '8px 12px',
+                                        backgroundColor: '#6c757d',
+                                        color: 'white',
+                                        border: 'none',
+                                        borderRadius: '4px',
+                                        cursor: 'pointer'
+                                    }}
+                                >
+                                    Clear
+                                </button>
+                            )}
+                        </div>
+                        {searchTerm && (
+                            <div style={{ marginTop: '10px', fontSize: '14px', color: '#666' }}>
+                                Found {filteredPersonnel.length} result{filteredPersonnel.length !== 1 ? 's' : ''}
+                            </div>
+                        )}
+                    </div>
                 )}
 
                 {showForm && (
@@ -418,6 +506,11 @@ function PersonnelManagement() {
                         <h3>No personnel found</h3>
                         <p>Add your first team member to get started</p>
                     </div>
+                ) : filteredPersonnel.length === 0 ? (
+                    <div className="empty-state">
+                        <h3>No results found</h3>
+                        <p>No personnel match your search criteria</p>
+                    </div>
                 ) : (
                     <div style={{ overflowX: 'auto' }}>
                         <table className="table rounded-table">
@@ -431,7 +524,7 @@ function PersonnelManagement() {
                                 </tr>
                             </thead>
                             <tbody>
-                                {personnel.map((person) => (
+                                {filteredPersonnel.map((person) => (
                                     <tr key={person.id}>
                                         <td className="align-middle py-7">{person.name}</td>
                                         <td className="align-middle py-7">{person.role}</td>

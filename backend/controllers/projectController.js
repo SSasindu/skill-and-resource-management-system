@@ -20,7 +20,22 @@ exports.getAllProjects = async (req, res) => {
 // Get single project by ID
 exports.getProjectById = async (req, res) => {
     try {
-        const [rows] = await db.query('SELECT * FROM projects WHERE id = ?', [req.params.id]);
+        const query = `
+        SELECT
+            p.id, 
+            p.project_name AS "project_name", 
+            p.description AS "description", 
+            p.start_date AS "start_date", 
+            p.end_date AS "end_date", 
+            p.status AS "status", 
+            GROUP_CONCAT(s.skill_name ORDER BY s.skill_name SEPARATOR ', ') AS "required_skills",
+            GROUP_CONCAT(prs.min_proficiency_level ORDER BY s.skill_name SEPARATOR ', ' ) AS "min_proficiency_level"
+        FROM projects p
+        LEFT JOIN project_required_skills prs ON prs.project_id=p.id
+        LEFT JOIN skills s ON prs.skill_id = s.id
+        GROUP BY p.id
+        HAVING p.id = ?;`;
+        const [rows] = await db.query(query, [req.params.id]);
         if (rows.length === 0) {
             return res.status(404).json({
                 success: false,
@@ -253,7 +268,7 @@ exports.getProjectWithSkills = async (req, res) => {
         }
 
         const [requiredSkills] = await db.query(
-            `SELECT prs.id, s.id as skill_id, s.skill_name, s.category, prs.min_proficiency_level
+            `SELECT prs.id, s.id as skill_id, s.skill_name, prs.min_proficiency_level
              FROM project_required_skills prs
              JOIN skills s ON prs.skill_id = s.id
              WHERE prs.project_id = ?`,

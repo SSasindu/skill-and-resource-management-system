@@ -16,6 +16,8 @@ function SkillManagement() {
         skill_id: '',
         proficiency_level: 'Beginner'
     });
+    const [searchTerm, setSearchTerm] = useState('');
+    const [searchFilter, setSearchFilter] = useState('All');
 
     useEffect(() => {
         fetchData();
@@ -120,6 +122,20 @@ function SkillManagement() {
         setAssignFormData({ personnel_id: '', skill_id: '', proficiency_level: 'Beginner' });
     };
 
+    // Filter skills based on search term and filter type
+    const filteredSkills = skills.filter(skill => {
+        if (!searchTerm) return true;
+        
+        const term = searchTerm.toLowerCase();
+        
+        switch (searchFilter) {
+            case 'Skill Name':
+            case 'All':
+            default:
+                return skill.skill_name.toLowerCase().includes(term);
+        }
+    });
+
     if (loading) return <div className="loading">Loading skills...</div>;
 
     return (
@@ -130,18 +146,75 @@ function SkillManagement() {
                 {success && <div className="alert alert-success">{success}</div>}
                 {error && <div className="alert alert-error">{error}</div>}
 
-                <div style={{ marginBottom: '20px' }}>
+                <div style={{ marginBottom: '10px' }}>
                     {!showSkillForm && !showAssignForm && (
                         <>
                             <button className="btn btn-primary" onClick={() => setShowSkillForm(true)}>
                                 Add New Skill
                             </button>
-                            <button className="btn btn-success" onClick={() => setShowAssignForm(true)}>
+                            {/* <button className="btn btn-success" onClick={() => setShowAssignForm(true)}>
                                 Assign Skill to Personnel
-                            </button>
+                            </button> */}
                         </>
                     )}
                 </div>
+
+                {/* Search Bar */}
+                {!showSkillForm && !showAssignForm && skills.length > 0 && (
+                    <div style={{ 
+                        marginTop: '20px',
+                        marginBottom: '20px',
+                        padding: '15px',
+                        backgroundColor: '#f5f5f5',
+                        borderRadius: '8px',
+                        border: '1px solid #ddd'
+                    }}>
+                        <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                            <label style={{ fontWeight: 'bold', minWidth: '80px' }}>Search:</label>
+                            <select
+                                value={searchFilter}
+                                onChange={(e) => setSearchFilter(e.target.value)}
+                                style={{ padding: '8px', borderRadius: '4px', border: '1px solid #ccc', minWidth: '150px' }}
+                            >
+                                <option value="All">All Fields</option>
+                                <option value="Skill Name">Skill Name</option>
+                            </select>
+                            <input
+                                type="text"
+                                placeholder={`Search by ${searchFilter.toLowerCase()}...`}
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                style={{ 
+                                    flex: 1,
+                                    padding: '8px 12px',
+                                    borderRadius: '4px',
+                                    border: '1px solid #ccc',
+                                    fontSize: '14px'
+                                }}
+                            />
+                            {searchTerm && (
+                                <button
+                                    onClick={() => setSearchTerm('')}
+                                    style={{
+                                        padding: '8px 12px',
+                                        backgroundColor: '#6c757d',
+                                        color: 'white',
+                                        border: 'none',
+                                        borderRadius: '4px',
+                                        cursor: 'pointer'
+                                    }}
+                                >
+                                    Clear
+                                </button>
+                            )}
+                        </div>
+                        {searchTerm && (
+                            <div style={{ marginTop: '10px', fontSize: '14px', color: '#666' }}>
+                                Found {filteredSkills.length} result{filteredSkills.length !== 1 ? 's' : ''}
+                            </div>
+                        )}
+                    </div>
+                )}
 
                 {showSkillForm && (
                     <form onSubmit={handleSkillSubmit} style={{ marginBottom: '30px' }}>
@@ -228,6 +301,11 @@ function SkillManagement() {
                         <h3>No skills found</h3>
                         <p>Add your first skill to get started</p>
                     </div>
+                ) : filteredSkills.length === 0 ? (
+                    <div className="empty-state">
+                        <h3>No results found</h3>
+                        <p>No skills match your search criteria</p>
+                    </div>
                 ) : (
                     <div style={{ overflowX: 'auto' }}>
                         <table className="table">
@@ -238,7 +316,7 @@ function SkillManagement() {
                                 </tr>
                             </thead>
                             <tbody>
-                                {skills.map((skill) => (
+                                {filteredSkills.map((skill) => (
                                     <tr key={skill.id}>
                                         <td className="align-middle"><strong>{skill.skill_name}</strong></td>
                                         <td className="table-actions align-middle">

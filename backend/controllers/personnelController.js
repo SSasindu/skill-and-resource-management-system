@@ -31,33 +31,26 @@ exports.getAllPersonnel = async (req, res) => {
     }
 };
 
-exports.getPersonnelWithSkills = async (req, res) => {
+exports.deleteIdOfPersonnelWithSkills = async (req, res) => {
     try {
-        const query = `
-        SELECT 
-            ps.personnel_id AS "id",
-            GROUP_CONCAT(s.skill_name ORDER BY s.skill_name SEPARATOR ', ') AS "skills"
-        FROM personnel_skills ps
-        LEFT JOIN skills s ON ps.skill_id = s.id
-        GROUP BY id
-        HAVING id = ?;`;
-        const [personnel] = await db.query(query, [req.params.id]);
-        if (personnel.length === 0) {
+        const [existing] = await db.query('SELECT * FROM personnel_skills WHERE id = find_id(?,?)', [req.params.id, req.params.skillId]);
+        if (existing.length === 0) {
             return res.status(404).json({
                 success: false,
-                message: 'Personnel not found'
+                message: 'Skill assignment not found'
             });
         }
+        const query = `DELETE FROM personnel_skills WHERE id=find_id(?,?);`;
+        await db.query(query, [req.params.id, req.params.skillId]);
+        
         res.json({
             success: true,
-            data: {
-                skills: personnel[0].skills
-            }
+            message: 'Personnel skill deleted successfully',
         });
     } catch (error) {
         res.status(500).json({
             success: false,
-            message: 'Error fetching personnel with skills',
+            message: 'Error deleting personnel skill',
             error: error.message
         });
     }
@@ -258,39 +251,3 @@ exports.deletePersonnel = async (req, res) => {
     }
 };
 
-// Get personnel with their skills
-// exports.getPersonnelWithSkills = async (req, res) => {
-//     try {
-//         const { id } = req.params;
-
-//         const [personnel] = await db.query('SELECT * FROM personnel WHERE id = ?', [id]);
-//         if (personnel.length === 0) {
-//             return res.status(404).json({
-//                 success: false,
-//                 message: 'Personnel not found'
-//             });
-//         }
-
-//         const [skills] = await db.query(
-//             `SELECT ps.id, s.id as skill_id, s.skill_name, s.category, ps.proficiency_level
-//              FROM personnel_skills ps
-//              JOIN skills s ON ps.skill_id = s.id
-//              WHERE ps.personnel_id = ?`,
-//             [id]
-//         );
-
-//         res.json({
-//             success: true,
-//             data: {
-//                 ...personnel[0],
-//                 skills: skills
-//             }
-//         });
-//     } catch (error) {
-//         res.status(500).json({
-//             success: false,
-//             message: 'Error fetching personnel with skills',
-//             error: error.message
-//         });
-//     }
-// };

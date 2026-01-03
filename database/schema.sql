@@ -27,7 +27,6 @@ CREATE TABLE personnel (
 CREATE TABLE skills (
     id INT AUTO_INCREMENT PRIMARY KEY,
     skill_name VARCHAR(255) NOT NULL UNIQUE,
-    INDEX idx_category (category)
 );
 
 -- Personnel Skills (Junction Table with Proficiency)
@@ -80,17 +79,17 @@ INSERT INTO personnel (name, email, role, experience_level) VALUES
 ('David Wilson', 'david.w@example.com', 'DevOps Engineer', 'Mid-Level');
 
 -- Insert sample skills
-INSERT INTO skills (skill_name, category, description) VALUES
-('React', 'Framework', 'JavaScript library for building user interfaces'),
-('Node.js', 'Runtime', 'JavaScript runtime built on Chrome V8 engine'),
-('Python', 'Programming Language', 'High-level programming language'),
-('AWS', 'Cloud Platform', 'Amazon Web Services cloud platform'),
-('MySQL', 'Database', 'Relational database management system'),
-('Docker', 'Tool', 'Containerization platform'),
-('JavaScript', 'Programming Language', 'Core web programming language'),
-('TypeScript', 'Programming Language', 'Typed superset of JavaScript'),
-('Git', 'Tool', 'Version control system'),
-('Communication', 'Soft Skill', 'Effective communication and collaboration');
+INSERT INTO skills (skill_name) VALUES
+('React'),
+('Node.js'),
+('Python'),
+('AWS'),
+('MySQL'),
+('Docker'),
+('JavaScript'),
+('TypeScript'),
+('Git'),
+('Communication');
 
 -- Insert sample personnel skills
 INSERT INTO personnel_skills (personnel_id, skill_id, proficiency_level) VALUES

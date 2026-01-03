@@ -10,7 +10,6 @@ function ProjectManagement() {
     const [showProjectForm, setShowProjectForm] = useState(false);
     const [showSkillForm, setShowSkillForm] = useState(false);
     const [editingId, setEditingId] = useState(null);
-    const [selectedProject, setSelectedProject] = useState(null);
     const [projectFormData, setProjectFormData] = useState({
         project_name: '',
         description: '',

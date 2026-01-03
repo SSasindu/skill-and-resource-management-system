@@ -60,7 +60,7 @@ Before running this application, ensure you have the following installed:
 ### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/yourusername/skill-and-resource-management-system.git
+git clone https://github.com/SSasindu/skill-and-resource-management-system.git
 cd skill-and-resource-management-system
 ```
 

@@ -89,7 +89,7 @@ exports.matchPersonnelToProject = async (req, res) => {
                 totalMatch += personProficiency;
             }
 
-            if (hasAllSkills) {
+            if (matchedSkills.length > 0) {
                 const matchPercentage = Math.round((totalMatch / (requiredSkills.length * 4)) * 100);
                 
                 matchedPersonnel.push({
